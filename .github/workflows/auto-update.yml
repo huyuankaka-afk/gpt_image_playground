@@ -1,0 +1,25 @@
+name: Auto-update from upstream
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Sync fork with upstream
+        id: sync
+        run: |
+          result=$(gh api -X POST repos/${{ github.repository }}/merge-upstream -f branch=main)
+          echo "$result"
+          echo "merge_type=$(echo "$result" | jq -r .merge_type)" >> "$GITHUB_OUTPUT"
+      - name: Trigger Vercel deploy if updated
+        if: steps.sync.outputs.merge_type != 'none'
+        run: curl -s -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
